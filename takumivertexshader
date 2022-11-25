@@ -1,0 +1,320 @@
+#define GLSLIFY 1
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+uniform float time;
+uniform float ttlScale;
+uniform float animationValue1;
+uniform float animationValue2;
+uniform float animationValue3;
+uniform float animationValue4;
+uniform float animationValue5;
+uniform float animationValue6;
+//uniform float animationValueTtlAbout;
+//uniform float animationValueTtlBlog;
+//uniform float animationValueTtlBookmarks;
+//uniform float animationValueTtlWorks;
+
+attribute vec3 position;
+attribute vec3 cubeCenter;
+attribute vec3 cubeRandom;
+attribute vec3 triangleRandom;
+attribute vec3 triangleCenter;
+attribute vec3 normal;
+attribute float noiseValue;
+attribute float vertexIndex;
+
+//attribute vec2 aboutPos;
+//attribute vec2 blogPos;
+//attribute vec2 bookmarksPos;
+//attribute vec2 worksPos;
+
+varying vec4 vColor;
+
+float PI_1_0 = 3.1415926535897932384626433832795;
+
+
+float map_2_1(float value, float inputMin, float inputMax, float outputMin, float outputMax, bool clamp) {
+  if(clamp == true) {
+    if(value < inputMin) return outputMin;
+    if(value > inputMax) return outputMax;
+  }
+
+  float p = (outputMax - outputMin) / (inputMax - inputMin);
+  return ((value - inputMin) * p) + outputMin;
+}
+
+
+vec3 hsv2rgb_3_2(vec3 c) {
+  vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+
+vec3 rotateVec3_4_3(vec3 p, float angle, vec3 axis){
+  vec3 a = normalize(axis);
+  float s = sin(angle);
+  float c = cos(angle);
+  float r = 1.0 - c;
+  mat3 m = mat3(
+    a.x * a.x * r + c,
+    a.y * a.x * r + a.z * s,
+    a.z * a.x * r - a.y * s,
+    a.x * a.y * r - a.z * s,
+    a.y * a.y * r + c,
+    a.z * a.y * r + a.x * s,
+    a.x * a.z * r + a.y * s,
+    a.y * a.z * r - a.x * s,
+    a.z * a.z * r + c
+  );
+  return m * p;
+}
+
+
+float exponentialInOut_6_4(float t) {
+  return t == 0.0 || t == 1.0
+    ? t
+    : t < 0.5
+      ? +0.5 * pow(2.0, (20.0 * t) - 10.0)
+      : -0.5 * pow(2.0, 10.0 - (t * 20.0)) + 1.0;
+}
+
+
+
+//
+// Description : Array and textureless GLSL 2D simplex noise function.
+//      Author : Ian McEwan, Ashima Arts.
+//  Maintainer : ijm
+//     Lastmod : 20110822 (ijm)
+//     License : Copyright (C) 2011 Ashima Arts. All rights reserved.
+//               Distributed under the MIT License. See LICENSE file.
+//               https://github.com/ashima/webgl-noise
+//
+
+vec3 mod289_5_5(vec3 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec2 mod289_5_5(vec2 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec3 permute_5_6(vec3 x) {
+  return mod289_5_5(((x*34.0)+1.0)*x);
+}
+
+float snoise_5_7(vec2 v)
+  {
+  const vec4 C = vec4(0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+                      0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+                     -0.577350269189626,  // -1.0 + 2.0 * C.x
+                      0.024390243902439); // 1.0 / 41.0
+// First corner
+  vec2 i  = floor(v + dot(v, C.yy) );
+  vec2 x0 = v -   i + dot(i, C.xx);
+
+// Other corners
+  vec2 i1;
+  //i1.x = step( x0.y, x0.x ); // x0.x > x0.y ? 1.0 : 0.0
+  //i1.y = 1.0 - i1.x;
+  i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  // x0 = x0 - 0.0 + 0.0 * C.xx ;
+  // x1 = x0 - i1 + 1.0 * C.xx ;
+  // x2 = x0 - 1.0 + 2.0 * C.xx ;
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+
+// Permutations
+  i = mod289_5_5(i); // Avoid truncation effects in permutation
+  vec3 p = permute_5_6( permute_5_6( i.y + vec3(0.0, i1.y, 1.0 ))
+    + i.x + vec3(0.0, i1.x, 1.0 ));
+
+  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+  m = m*m ;
+  m = m*m ;
+
+// Gradients: 41 points uniformly over a line, mapped onto a diamond.
+// The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+
+// Normalise gradients implicitly by scaling m
+// Approximation of: m *= inversesqrt( a0*a0 + h*h );
+  m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+
+// Compute final noise value at P
+  vec3 g;
+  g.x  = a0.x  * x0.x  + h.x  * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+
+
+
+
+
+float getRad(float scale, float offset) {
+  return map_2_1(mod(time * scale + offset, PI_1_0 * 2.0), 0.0, PI_1_0 * 2.0, -PI_1_0, PI_1_0, true);
+}
+
+float getanimationValue(float animationValue, float randomValue) {
+  float p = clamp(-map_2_1(randomValue, -1.0, 1.0, 0.0, 0.6, true) + animationValue * 1.5, 0.0, 1.0);
+  p = exponentialInOut_6_4(p);
+  return p;
+}
+
+/*
+void setTtlAnimation(float animationValue, vec2 ttlPos, inout vec3 pos) {
+  float p = getanimationValue(animationValue, triangleRandom.x);
+  if(p > 0.0) {
+    pos = pos - triangleCenter * p;
+    pos *= (1.0 - 0.01 * p * cubeRandom.x);
+    float scale = 1.0 + (ttlScale * 20.0 * p - 1.0) * p;
+    pos *= scale;
+    float rad1 = getRad(40.0, noiseValue * 10.0);
+    float rad2 = getRad(40.0, noiseValue * 10.0);
+    pos = rotateVec3_4_3(pos, p * rad1, vec3(1.0, 0, 0));
+    pos = rotateVec3_4_3(pos, p * rad2, vec3(0, 1.0, 0));
+    pos.x *= 1.0 - p * 0.6;
+    pos.z *= 1.0 - p * 0.6;
+    vec3 n = rotateVec3_4_3(normal, p * rad1, vec3(1.0, 0, 0));
+    n = rotateVec3_4_3(n, p * rad2, vec3(0, 1.0, 0));
+    pos += (p * vec3(ttlPos * ttlScale, 0.0));
+    float noise = snoise_5_7(pos.xy / 300.0 / scale);
+    pos += p * vec3(
+      sin((time + noise) * 100.0) * 0.2 * scale,
+      cos((time + noise) * 60.0) * 0.2 * scale,
+      0
+    );
+  }
+} **/
+
+void main() {
+  vec3 pos = position;
+  vec3 n = normal;
+  float rad1, rad2;
+
+  // animation1
+  float p = exponentialInOut_6_4(animationValue1);
+  if(p > 0.0) {
+    rad1 = getRad(3.0, 0.0);
+    rad2 = getRad(5.0, 0.0);
+    pos = rotateVec3_4_3(pos, p * rad1, vec3(1.0, 0, 0));
+    pos = rotateVec3_4_3(pos, p * rad2, vec3(0, 1.0, 0));
+    n = rotateVec3_4_3(n, p * rad1, vec3(1.0, 0, 0));
+    n = rotateVec3_4_3(n, p * rad2, vec3(0, 1.0, 0));
+    pos += (p * sin(getRad(200.0, noiseValue * 200.0)) * noiseValue * 0.06 * normalize(pos));
+  }
+
+  // animation2
+  p = getanimationValue(animationValue2, cubeRandom.x);
+  if(p > 0.0) {
+    pos = pos - cubeCenter * p;
+    pos *= (1.0 + p);
+    rad1 = PI_1_0 * 2.0 * sin(getRad(1.0, cubeRandom.x));
+    rad2 = PI_1_0 * 2.0 * sin(getRad(1.0, cubeRandom.y));
+    pos = rotateVec3_4_3(pos, p * rad1, vec3(1.0, 0, 0));
+    pos = rotateVec3_4_3(pos, p * rad2, vec3(0, 1.0, 0));
+    n = rotateVec3_4_3(n, p * rad1, vec3(1.0, 0, 0));
+    n = rotateVec3_4_3(n, p * rad2, vec3(0, 1.0, 0));
+    vec3 cubeCenterTo = cubeRandom * 20.0;
+    pos += (p * cubeCenterTo);
+    pos = rotateVec3_4_3(pos, p * getRad(1.0, 0.0), vec3(0.3, 1.0, 0.2));
+    pos += (p * sin(getRad(160.0, noiseValue * 160.0)) * noiseValue * 0.3 * normalize(cubeCenterTo - pos));
+  }
+
+
+  // animation3
+  p = getanimationValue(animationValue3, triangleRandom.x);
+  if(p > 0.0) {
+    pos = pos - triangleCenter * p;
+    rad1 = getRad(40.0, triangleRandom.x);
+    rad2 = getRad(40.0, triangleRandom.y);
+    pos = rotateVec3_4_3(pos, p * rad1, vec3(1.0, 0, 0));
+    pos = rotateVec3_4_3(pos, p * rad2, vec3(0, 1.0, 0));
+    n = rotateVec3_4_3(n, p * rad1, vec3(1.0, 0, 0));
+    n = rotateVec3_4_3(n, p * rad2, vec3(0, 1.0, 0));
+    float radius = 30.0 * map_2_1(triangleRandom.y, -1.0, 1.0, 0.0, 1.0, true);
+    float anim2CircleRad = getRad(6.0, triangleRandom.x * 6.0);
+    pos += vec3(
+      p * radius * cos(anim2CircleRad),
+      p * 2.0 * sin(getRad(4.0, triangleRandom.y) * 10.0),
+      p * radius * sin(anim2CircleRad)
+    );
+    pos = rotateVec3_4_3(pos, p * getRad(4.0, 0.0), vec3(0.3, 1.0, sin(time)));
+    n = rotateVec3_4_3(n, p * getRad(4.0, 0.0), vec3(0.3, 1.0, sin(time)));
+  }
+
+
+  // animation4
+  p = getanimationValue(animationValue4, triangleRandom.x);
+  if(p > 0.0) {
+    pos = pos - triangleCenter * p;
+    if(mod(vertexIndex, 3.0) > 0.0) {
+      pos.z += (p * (4.0 * triangleRandom.z * sin(triangleRandom.z * 100.0)));
+      pos = rotateVec3_4_3(pos, p * getRad(10.0, triangleRandom.x * 10.0), vec3(1.0, 0, 0));
+      pos = rotateVec3_4_3(pos, p * getRad(10.0, triangleRandom.y * 10.0), vec3(0, 1.0, 0));
+      pos += (p * sin(getRad(60.0, noiseValue * 60.0)) * noiseValue * 6.0 * normalize(pos));
+    }
+  }
+
+  // animation5
+  p = getanimationValue(animationValue5, triangleRandom.x);
+  if(p > 0.0) {
+    pos = pos - (pos - normalize(pos) * 3.0) * p;
+    rad1 = getRad(10.0, triangleRandom.x * 10.0);
+    rad2 = getRad(10.0, triangleRandom.y * 10.0);
+    pos = rotateVec3_4_3(pos, p * rad1, vec3(1.0, 0, 0));
+    pos = rotateVec3_4_3(pos, p * rad2, vec3(0, 1.0, 0));
+    n = rotateVec3_4_3(n, p * rad1, vec3(1.0, 0, 0));
+    n = rotateVec3_4_3(n, p * rad2, vec3(0, 1.0, 0));
+    pos += (p * sin(getRad(10.0, triangleRandom.z * 10.0)) * 3.0 * normalize(pos));
+  }
+
+
+  // animation6
+  p = getanimationValue(animationValue6, triangleRandom.x);
+  if(p > 0.0) {
+    pos = pos - triangleCenter * p;
+    rad1 = getRad(30.0, triangleRandom.x * 10.0);
+    rad2 = getRad(30.0, triangleRandom.y * 10.0);
+    pos = rotateVec3_4_3(pos, p * rad1, vec3(1.0, 0, 0));
+    pos = rotateVec3_4_3(pos, p * rad2, vec3(0, 1.0, 0));
+    float triangleIndex = floor(vertexIndex / 3.0);
+    float cubeIndex = mod(mod(triangleIndex, 41.0), 3.0);
+    float size = 2.0 + cubeIndex * 2.0;
+    float t = mod(time * 10.0 + triangleRandom.z * 10.0, 4.0);
+    pos.x += (map_2_1(t, 0.0, 1.0, -1.0, 1.0, true) * size * p - size * p);
+    pos.y += (map_2_1(t, 1.0, 2.0, -1.0, 1.0, true) * size * p - size * p);
+    pos.x -= map_2_1(t, 2.0, 3.0, -1.0, 1.0, true) * size * p;
+    pos.y -= map_2_1(t, 3.0, 4.0, -1.0, 1.0, true) * size * p;
+    pos.z -= size * p;
+    pos = rotateVec3_4_3(pos, p * PI_1_0 * mod(triangleIndex, 2.0), vec3(1.0, 0, 0));
+    pos = rotateVec3_4_3(pos, p * PI_1_0 / 2.0 * mod(triangleIndex, 3.0), vec3(0, 1.0, 0));
+    pos = rotateVec3_4_3(pos, p * PI_1_0 / 2.0 * mod(triangleIndex, 4.0), vec3(0, 0, 1.00));
+    pos = rotateVec3_4_3(pos, p * time * 2.0 * (cubeIndex + 1.0), vec3(1.0, 0, 0));
+    pos = rotateVec3_4_3(pos, p * time * 2.0 * (cubeIndex + 1.0), vec3(0, 1.0, 0));
+  }
+
+  /* title
+  setTtlAnimation(animationValueTtlAbout, aboutPos, pos);
+  setTtlAnimation(animationValueTtlBlog, blogPos, pos);
+  setTtlAnimation(animationValueTtlBookmarks, bookmarksPos, pos);
+  setTtlAnimation(animationValueTtlWorks, worksPos, pos); **/
+
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+
+  float len = length(pos);
+  vColor = vec4(hsv2rgb_3_2(vec3(
+    map_2_1(sin(getRad(2.0, noiseValue * 0.6 + len * (animationValue5 * 0.2 + animationValue6 * 0.2))), -1.0, 1.0, 0.0, 1.0, true),
+    map_2_1(cos(getRad(3.0, noiseValue * 2.0 + len * (animationValue2 * 2.0 + animationValue3 * 3.0))), -1.0, 1.0, 0.3, 0.5, true),
+    map_2_1(cos(getRad(1.0, noiseValue * 0.3)), -1.0, 1.0, 1.6, 2.0, true) + animationValue4 * 0.2
+  )), 1.0);
+
+  // light
+  float diffuse  = clamp(dot(n, normalize(vec3(1.0, 1.0, 1.0))) , 0.5, 1.0);
+  vColor *= vec4(vec3(diffuse), 1.0);
+}
