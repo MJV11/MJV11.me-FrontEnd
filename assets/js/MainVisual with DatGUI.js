@@ -59,6 +59,10 @@
     this.camera = new THREE.PerspectiveCamera(35, this.width / this.height, 10, 1000);
     this.camera.position.set(0, 0, 100);
 
+    // controls
+    // Unless this.renderer.domElement is specified as the second argument, dat.gui's GUI cannot be operated properly
+    this.controls = new THREE.TrackballControls(this.camera, this.renderer.domElement);
+
     // window resize event
     this.$window.on('resize', function(e) {
       // execute resize method
@@ -90,6 +94,9 @@
 
     self.scene.add(self.Triangles);
 
+    // Generate GUI for dat.gui
+    self.createDatGUIBox();
+
     return self.Triangles;
   }
 
@@ -112,6 +119,7 @@
    * Runs inside the animation loop
    */
   sample.MainVisual.prototype.update = function() {
+    this.controls.update();
     this.Triangles.update(this.camera);
     this.renderer.render(this.scene, this.camera);
   }
@@ -124,6 +132,9 @@
     this.width = this.$window.width();
     this.height = this.$window.height();
 
+    // Perform resizing of TrackballControls
+    this.controls.handleResize();
+
     // update camera settings
     this.camera.aspect = this.width / this.height;
     this.camera.updateProjectionMatrix();
@@ -131,6 +142,54 @@
     // Update WebGLRenderer settings
     this.renderer.setSize(this.width, this.height);
   }
+
+  /**
+   * dat.gui
+   * define controller for dat.gui
+   
+  sample.MainVisual.prototype.createDatGUIBox = function() {
+    var self = this;
+
+    // dat.gui
+    var gui = new dat.GUI()
+
+    // Place a button to animate the value
+    // Clicking each will call the animation1, animation2, animation3 methods
+    gui.add(this, 'animation1');
+    gui.add(this, 'animation2');
+    gui.add(this, 'animation3');
+    gui.add(this, 'animation4');
+    gui.add(this, 'animation5');
+    gui.add(this, 'animation6');
+    gui.add(this, 'animation7');
+    gui.add(this, 'animation8');
+  }
+  
+  sample.MainVisual.prototype.animation1 = function() {
+    this.animate(1);
+  }
+  sample.MainVisual.prototype.animation2 = function() {
+    this.animate(2);
+  }
+  sample.MainVisual.prototype.animation3 = function() {
+    this.animate(3);
+  }
+  sample.MainVisual.prototype.animation4 = function() {
+    this.animate(4);
+  }
+  sample.MainVisual.prototype.animation5 = function() {
+    this.animate(5);
+  }
+  sample.MainVisual.prototype.animation6 = function() {
+    this.animate(6);
+  }
+  sample.MainVisual.prototype.animation7 = function() {
+    this.animate(7);
+  }
+  sample.MainVisual.prototype.animation8 = function() {
+    this.animate(8);
+  }
+  */
 
   /**
    * Change animationValue
@@ -176,13 +235,7 @@
     var self = this;
 
     () => self.animation(5);
-    function sleep(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
-    }
-    async function jankyWayToPause() {
-      await sleep(1000);
-    }
-    jankyWayToPause();
+    setTimeout(self.changeID, 1000)
     switch (ID) {
       case 7:
         self.animation(ID);
